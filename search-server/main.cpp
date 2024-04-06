@@ -64,19 +64,15 @@ public:
 
     void AddDocument(int document_id, const string& document) {
         const vector<string> words = SplitIntoWordsNoStop(document);
-        int doc_size = words.size();
-        
-        map<string, int> words_count;
+
+        int words_size = words.size();
+        const double one_word_weight = 1.0 / words_size;
+
         for (const string& word : words) {
-            int w_count = count(words.begin(), words.end(), word);
-            words_count.insert({word, w_count});
+            word_to_document_freqs_[word][document_id] += one_word_weight;
         }
-        
-        for (const string& word : words) {
-            double tf = words_count[word] / static_cast<double>(doc_size);
-            word_to_document_freqs_[word].insert({document_id, tf});
-        }
-        document_count_++;
+
+        ++document_count_;
     }
 
     vector<Document> FindTopDocuments(const string& raw_query) const {
