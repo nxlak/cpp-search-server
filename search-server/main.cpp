@@ -69,14 +69,12 @@ public:
 
     SearchServer() {};
 
-    explicit SearchServer(const string& stop_words) {
-        SetStopWords(stop_words);
-    }
+    explicit SearchServer(const string& stop_words) : SearchServer(SplitIntoWords(stop_words)) {}
 
     template <typename StringCollection>
     explicit SearchServer(const StringCollection& stop_words) {
         for (const auto& stop_word : stop_words) {
-            if (stop_word != ""s && IsValidWord(stop_word)) {
+            if (IsValidWord(stop_word)) {
                 stop_words_.insert(stop_word);
             }
             else {
@@ -110,16 +108,13 @@ public:
         for (const string& word : words) {
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
+        document_ids_.push_back(document_id);
         documents_.emplace(document_id, DocumentData{ComputeAverageRating(ratings), status});
     }
     
     template <typename DocumentPredicate>
     vector<Document> FindTopDocuments(const string& raw_query, DocumentPredicate document_predicate) const {
-        Query query;
-        if (!ParseQuery(raw_query, query)) {
-            throw invalid_argument("119"s);
-        }
-        
+        Query query = ParseQuery(raw_query);
         auto matched_documents = FindAllDocuments(query, document_predicate);
         
         sort(matched_documents.begin(), matched_documents.end(),
@@ -151,11 +146,9 @@ public:
     }
 
     tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query, int document_id) const {
-        Query query;
-        if (!ParseQuery(raw_query, query)) {
-            throw invalid_argument("156"s);
-        }
+        Query query = ParseQuery(raw_query);
         vector<string> matched_words;
+        
         for (const string& word : query.plus_words) {
             if (word_to_document_freqs_.count(word) == 0) {
                 continue;
@@ -178,15 +171,9 @@ public:
 
     int GetDocumentId(int index) const {
         if (index >= 0 && index < GetDocumentCount()) {
-            int i = 0;
-            for (const auto& doc : documents_) {
-                if (i == index) {
-                    return doc.first; 
-                }
-                i++;
-            }
+            return document_ids_[index]; // <--- simply return the ID at the given index
         }
-        throw out_of_range("index out of range"s);
+        throw std::out_of_range("index out of range");
     }
 
 private:
@@ -198,7 +185,8 @@ private:
     set<string> stop_words_;
     map<string, map<int, double>> word_to_document_freqs_;
     map<int, DocumentData> documents_;
-
+    vector<int> document_ids_;
+    
     static bool IsValidWord(const string& word) {
         return none_of(word.begin(), word.end(), [](char c) {
             return c >= '\0' && c < ' ';
@@ -232,8 +220,11 @@ private:
         bool is_minus;
         bool is_stop;
     };
-
+    
     QueryWord ParseQueryWord(string text) const {
+        if (!IsValidWord(text) || (text[0] == '-' && text.size() == 1) || (text[0] == '-' && text[1] == '-')) {
+            throw invalid_argument("Invalid query word");
+        }
         bool is_minus = false;
         if (text[0] == '-') {
             is_minus = true;
@@ -241,17 +232,14 @@ private:
         }
         return {text, is_minus, IsStopWord(text)};
     }
-
     struct Query {
         set<string> plus_words;
         set<string> minus_words;
     };
 
-    [[nodiscard]] bool ParseQuery(const string& text, Query& query) const {
+    Query ParseQuery(const string& text) const {
+        Query query;
         for (const string& word : SplitIntoWords(text)) {
-            if (!IsValidWord(word) || (word[0] == '-' && word.size() == 1) || (word[0] == '-' && word[1] == '-')) {
-                return false;
-            }
             const QueryWord query_word = ParseQueryWord(word);
             if (!query_word.is_stop) {
                 if (query_word.is_minus) {
@@ -261,7 +249,7 @@ private:
                 }
             }
         }
-        return true;
+        return query;
     }
 
     double ComputeWordInverseDocumentFreq(const string& word) const {
