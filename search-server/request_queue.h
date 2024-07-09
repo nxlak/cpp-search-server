@@ -14,15 +14,11 @@ public:
     }
 
     std::vector<Document> AddFindRequest(const std::string& raw_query, DocumentStatus status) {
-        const auto result = search_server_.FindTopDocuments(raw_query, status);
-        AddRequest(result.size());
-        return result;
+        return AddFindRequest(raw_query, [status](int id, DocumentStatus s, int rating) { return s == status; });
     }
 
     std::vector<Document> AddFindRequest(const std::string& raw_query) {
-        const auto result = search_server_.FindTopDocuments(raw_query);
-        AddRequest(result.size());
-        return result;
+        return AddFindRequest(raw_query, DocumentStatus::ACTUAL);
     }
 
     int GetNoResultRequests() const;
