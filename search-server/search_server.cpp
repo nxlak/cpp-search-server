@@ -1,6 +1,7 @@
 #include "search_server.h"
 
 #include <cmath>
+#include <numeric>
 
 using namespace std;
 
@@ -25,9 +26,6 @@ void SearchServer::AddDocument(int document_id, const string& document, Document
 }
 
 vector<Document> SearchServer::FindTopDocuments(const string& raw_query, DocumentStatus status) const {
-//    return FindTopDocuments(raw_query, [status]([[maybe_unused]] int document_id,
-//                                                DocumentStatus document_status,
-//                                                [[maybe_unused]] int rating) {
     return FindTopDocuments(raw_query, [status](int document_id,
                                                 DocumentStatus document_status,
                                                 int rating) {
@@ -99,10 +97,9 @@ int SearchServer::ComputeAverageRating(const vector<int>& ratings) {
     if (ratings.empty()) {
         return 0;
     }
-    int rating_sum = 0;
-    for (const int rating : ratings) {
-        rating_sum += rating;
-    }
+    
+    int rating_sum = std::accumulate(ratings.begin(), ratings.end(), 0);
+    
     return rating_sum / static_cast<int>(ratings.size());
 }
 
